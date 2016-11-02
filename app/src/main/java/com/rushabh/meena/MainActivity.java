@@ -18,8 +18,9 @@ import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.view.animation.AnticipateOvershootInterpolator;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -55,7 +56,7 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
     int maxHeightOfContactScroller;
     int maxHeightForResult;
 
-    int duration=50;
+    int duration=500;
 
     boolean wasPreviousMathematical = false;
     Handler handler = new Handler();
@@ -104,7 +105,7 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 
                 handler.removeCallbacks(searchRunnable);
-                handler.postDelayed(searchRunnable, 100);
+                handler.postDelayed(searchRunnable, duration+100);
             }
 
             @Override
@@ -112,6 +113,14 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
             }
         });
+
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Animation anim = AnimationUtils.loadAnimation(this, R.anim.scale_animation);
+        etQuery.startAnimation(anim);
 
     }
 
