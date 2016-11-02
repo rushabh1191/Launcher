@@ -17,6 +17,8 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.animation.AnticipateOvershootInterpolator;
 import android.widget.EditText;
@@ -31,9 +33,11 @@ import java.util.regex.Pattern;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import butterknife.OnClick;
 
 public class MainActivity extends Activity implements LoaderManager.LoaderCallbacks<Cursor> {
 
+    @BindView(R.id.et_text_query)
     EditText etQuery;
 
     List<ApplicationInfo> list;
@@ -50,7 +54,11 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
     int maxHeightOfContactScroller;
     int maxHeightForResult;
-    Handler handler=new Handler();
+
+    int duration=50;
+
+    boolean wasPreviousMathematical = false;
+    Handler handler = new Handler();
     private final String[] PROJECTION =
             {
                     ContactsContract.Contacts._ID,
@@ -69,7 +77,6 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
         setContentView(R.layout.activity_main);
 
         ButterKnife.bind(this);
-        etQuery = (EditText) findViewById(R.id.et_text_query);
 
 
         PackageManager packageManager = getPackageManager();
@@ -78,8 +85,8 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
         resolver = getContentResolver();
 
 
-        maxHeightForResult=Utility.dpToPx(300);
-        maxHeightOfContactScroller=Utility.dpToPx(400);
+        maxHeightForResult = Utility.dpToPx(80);
+        maxHeightOfContactScroller = Utility.dpToPx(150);
         contactsAdapter = new ContactsAdapter(null, this);
 
         contactScroller.setLayoutManager(new LinearLayoutManager(this,
@@ -97,7 +104,7 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 
                 handler.removeCallbacks(searchRunnable);
-                handler.postDelayed(searchRunnable,100);
+                handler.postDelayed(searchRunnable, 100);
             }
 
             @Override
@@ -105,13 +112,22 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
             }
         });
+
+    }
+
+    @OnClick(R.id.activity_main)
+    void finishTheActivity() {
+        this.finish();
     }
 
 
     void applySearchAlgo(String query) {
         if (query.trim().length() > 0) {
             boolean isMathematical = isMathematical(query);
+
+            Log.d("beta", "Is Mathe" + query + " " + isMathematical);
             if (isMathematical) {
+                wasPreviousMathematical = true;
                 showCalculation(solveEquation(query) + "");
             } else {
                 hideResult();
@@ -125,58 +141,46 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
     }
 
     private void hideContacts() {
-//        hideWithAnimation(contactScroller,maxHeightOfContactScroller);
+        hideWithAnimation(contactScroller, maxHeightOfContactScroller);
     }
 
-    void hideWithAnimation(final View view, int fromHeight){
-        if(view.getLayoutParams().height>0){
-            final ValueAnimator va = ValueAnimator.ofInt(fromHeight, 0);
-            va.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                public void onAnimationUpdate(ValueAnimator animation) {
+    void makeAnimation(final View view,int fromHeight,int toHeight){
+        final ValueAnimator va = ValueAnimator.ofInt(fromHeight, toHeight);
+        va.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(ValueAnimator animation) {
 
-                    Integer value = (Integer) animation.getAnimatedValue();
-                    view.getLayoutParams().height = value;
-                    view.requestLayout();
+                Integer value = (Integer) animation.getAnimatedValue();
+                view.getLayoutParams().height = value;
+                view.requestLayout();
 
-                }
-            });
-            va.setInterpolator(new AnticipateOvershootInterpolator());
-            va.start();
+            }
+        });
+        va.setInterpolator(new AnticipateOvershootInterpolator());
+        va.setDuration(duration);
+        va.start();
+    }
+    void hideWithAnimation(final View view, int fromHeight) {
+        if (view.getLayoutParams().height > 0) {
+            makeAnimation(view,fromHeight,0);
         }
     }
 
     void hideResult() {
-        hideWithAnimation(tvCalculationResult,300);
+        hideWithAnimation(tvCalculationResult, maxHeightForResult);
     }
 
-    void showWithAnimation(final View view, int maxHeight){
-        if (tvCalculationResult.getHeight() == 0) {
-            final ValueAnimator va = ValueAnimator.ofInt(0, maxHeight);
-            va.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                public void onAnimationUpdate(ValueAnimator animation) {
-
-                    Integer value = (Integer) animation.getAnimatedValue();
-                    view.getLayoutParams().height = value;
-                    view.requestLayout();
-
-                }
-            });
-
-            va.setInterpolator(new AnticipateOvershootInterpolator());
-            va.start();
+    void showWithAnimation(final View view, final int maxHeight) {
+        if (view.getHeight() == 0) {
+            makeAnimation(view,0,maxHeight);
         }
     }
 
     void searchContacts(String query) {
-        if(getLoaderManager().getLoader(0)==null){
+        if (getLoaderManager().getLoader(0) == null) {
             getLoaderManager().initLoader(0, null, this);
-        }
-        else{
+        } else {
             getLoaderManager().restartLoader(0, null, this);
         }
-
-
-//        showWithAnimation(contactScroller,maxHeightOfContactScroller);
     }
 
     boolean isMathematical(String searchQuery) {
@@ -189,14 +193,16 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
     void showCalculation(String result) {
 
+
         tvCalculationResult.setText(result);
-        showWithAnimation(tvCalculationResult,300);
+        showWithAnimation(tvCalculationResult, maxHeightForResult);
     }
 
     BigDecimal solveEquation(String query) {
 
         BigDecimal result = null;
         Expression expression = new Expression(query);
+
         result = expression.eval();
         return result;
     }
@@ -214,14 +220,24 @@ public class MainActivity extends Activity implements LoaderManager.LoaderCallba
 
     }
 
-    Runnable searchRunnable=new Runnable() {
+    Runnable searchRunnable = new Runnable() {
         @Override
         public void run() {
             applySearchAlgo(etQuery.getText().toString());
         }
     };
+
+    void showContacts() {
+        showWithAnimation(contactScroller, maxHeightOfContactScroller);
+    }
+
     @Override
     public void onLoadFinished(Loader<Cursor> loader, Cursor applicationInfo) {
+        if (applicationInfo.getCount() == 0) {
+            hideContacts();
+        } else {
+            showContacts();
+        }
         contactsAdapter.changeCursor(applicationInfo);
     }
 
